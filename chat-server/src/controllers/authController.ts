@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import { JWT_SECRET } from '../config';
 import { v4 as uuidv4 } from 'uuid';
 import { User, addUser, findUserByUsername } from '../models/user';
 
@@ -21,8 +23,13 @@ export const login = async (req: Request, res: Response) => {
   const { username, password } = req.body;
   const user = findUserByUsername(username);
   if (user && await bcrypt.compare(password, user.password)) {
-    res.json({ userId: user.id, message: 'התחברת בהצלחה' });
+    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '1h' });
+    res.json({ token, userId: user.id, message: 'התחברת בהצלחה' });
   } else {
-    res.status(400).json({ message: 'שם משתמש או סיסמה שגויים' });
+    res.status(400).json({ message: 'Invalid credentials' });
   }
 };
+
+const handleJWT = () => {
+
+}

@@ -6,14 +6,14 @@ interface ChatWindowProps {
   socket: any;
   chatId: string;
   userId: string;
+  partnerUsername: string;
 }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ socket, chatId, userId }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ socket, chatId, userId, partnerUsername }) => {
   const [messages, setMessages] = useState<string[]>([]);
 
   useEffect(() => {
-    setMessages(['פרטנר התחבר לשיחה. אפשר להתחיל לדבר!']);
-
+    setMessages([`${partnerUsername} התחבר לשיחה. אפשר להתחיל לדבר!`]);
     socket.on('message', (message: string) => {
       setMessages((prevMessages) => [...prevMessages, message]);
     });

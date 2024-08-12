@@ -16,11 +16,15 @@ const Login: React.FC = () => {
       });
       const data = await response.json();
       if (response.ok) {
+        if (!data.token || !data.userId) {
+          throw new Error('Invalid response from server');
+        }
         // שמירת פרטי המשתמש ב-localStorage או ב-context
+        localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify({ id: data.userId, username }));
         navigate('/chat');
       } else {
-        alert(data.message);
+        // alert(data.message);
       }
     } catch (error) {
       console.error('Login error:', error);

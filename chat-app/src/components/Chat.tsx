@@ -1,16 +1,47 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import io from 'socket.io-client';
+import io, { Socket } from 'socket.io-client';
 import ChatWindow from './ChatWindow';
 import WaitingScreen from './WaitingScreen';
 
-const socket = io('http://localhost:3001');
+enum ChatState {
+  Idle = 'idle',
+  Waiting = 'waiting',
+  Chatting = 'chatting',
+}
+
+interface User {
+  id: string;
+  username: string;
+}
 
 const Chat: React.FC = () => {
-  const [user, setUser] = useState<{ id: string; username: string } | null>(null);
-  const [chatState, setChatState] = useState<'idle' | 'waiting' | 'chatting'>('idle');
+  const [user, setUser] = useState<User | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const [chatState, setChatState] = useState<ChatState>(ChatState.Idle);
   const [chatId, setChatId] = useState<string | null>(null);
+  const [partnerUsername, setPartnerUsername] = useState<string | null>(null);
+
   const navigate = useNavigate();
+
+  const connectSocket = useCallback(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/');
+    }
+    const newSocket = io('http://localhost:3001', {
+      auth: { token }
+    });
+    
+    newSocket.on('connect_error', (err) => {
+      console.error('Connection error:', err.message);
+      // כאן אפשר להוסיף לוגיקה לטיפול בשגיאת התחברות, למשל ניתוב חזרה לדף ההתחברות
+      navigate('/');
+    });
+
+    setSocket(newSocket);
+    return newSocket;
+  }, [navigate]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -22,51 +53,84 @@ const Chat: React.FC = () => {
   }, [navigate]);
 
   useEffect(() => {
-    if (user) {
-      socket.emit('user_connected', user.id);
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    } else {
+      navigate('/login');
+    }
+  }, [navigate]);
 
-      socket.on('waiting', () => {
-        setChatState('waiting');
-      });
+  useEffect(() => {
+    if (!user) return;
 
-      socket.on('chat_started', (newChatId: string) => {
-        setChatState('chatting');
-        setChatId(newChatId);
-      });
+    const socket = connectSocket();
+    socket.emit('join', user.id, user.username);
 
-      socket.on('partner_disconnected', () => {
-        setChatState('idle');
-        setChatId(null);
-        alert('השותף לצ\'אט התנתק');
-      });
+    const handleWaiting = () => setChatState(ChatState.Waiting);
+    const handleChatStarted = (newChatId: string, newPartnerUsername: string) => {
+      setChatState(ChatState.Chatting);
+      setChatId(newChatId);
+      setPartnerUsername(newPartnerUsername);
+    };
+
+    const handleChatEnded = () => {
+      setChatState(ChatState.Idle);
+      setChatId(null);
+      setPartnerUsername(null);
     }
 
-    return () => {
-      socket.off('waiting');
-      socket.off('chat_started');
-      socket.off('partner_disconnected');
+    const handlePartnerDisconnected = () => {
+      setChatState(ChatState.Waiting);
+      setChatId(null);
+      setPartnerUsername(null);
+      alert('the partner has disconnected we looking for new partner');
     };
-  }, [user]);
+
+    socket.on('waiting', handleWaiting);
+    socket.on('chat_started', handleChatStarted);
+    socket.on('chat_ended', handleChatEnded);
+    socket.on('partner_disconnected', handlePartnerDisconnected);
+    
+    return () => {
+      socket.off('waiting', handleWaiting);
+      socket.off('chat_started', handleChatStarted);
+      socket.off('chat_ended', handleChatEnded);
+      socket.off('partner_disconnected', handlePartnerDisconnected);
+      socket.disconnect();
+    };
+  }, [user, connectSocket]);
 
   const startChat = () => {
-    if (user) {
-      console.log('chat started');
-
+    if (user && socket) {
       socket.emit('start_chat', user.id);
+    } else {
+      console.error('User or socket not found');
     }
   };
 
   const endChat = () => {
-    if (!chatId) {
-      setChatState('idle');
-      return;
+    if (socket) {
+      if (chatId) {
+        socket.emit('end_chat', chatId)
+      } else {
+        socket.emit('end_chat', chatId, user?.id);
+      }
+    } else {
+      navigate('/');
     }
-    socket.emit('end_chat', chatId);
-    setChatState('waiting');
+    setChatId(null);
+    setPartnerUsername(null);
   };
 
   const handleLogout = () => {
     localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    if (socket) {
+      socket.disconnect();
+    }
+    setSocket(null);
+    setUser(null);
     navigate('/');
   };
 
@@ -77,30 +141,52 @@ const Chat: React.FC = () => {
   return (
     <div className="w-full max-w-md">
       <h1 className="text-2xl mb-4 text-center">ברוך הבא, {user.username}!</h1>
-      {chatState === 'idle' ? (
-        <button
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full mb-4"
-          onClick={startChat}
-        >
-          התחל צ'אט
-        </button>
-      ) : (
-        <button
-          className="flex justify-center m-2 p-2 bg-orange-500"
-          onClick={endChat}>
-          סיום שיחה
-        </button>
+      <ChatButton chatState={chatState} onStart={startChat} onEnd={endChat} />
+      {chatState === ChatState.Waiting ? <WaitingScreen /> :
+            chatState === ChatState.Chatting && chatId && partnerUsername && (
+        <ChatWindow
+          socket={socket}
+          chatId={chatId}
+          userId={user.id}
+          partnerUsername={partnerUsername}
+        />
       )}
-      {chatState === 'waiting' && <WaitingScreen />}
-      {chatState === 'chatting' && chatId && <ChatWindow socket={socket} chatId={chatId} userId={user.id} />}
-      <button
-        className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded w-full mt-4"
-        onClick={handleLogout}
-      >
-        התנתק
-      </button>
+      <LogoutButton onClick={handleLogout} />
     </div>
   );
 };
+
+interface ChatButtonProps {
+  chatState: ChatState;
+  onStart: () => void;
+  onEnd: () => void;
+}
+
+const ChatButton: React.FC<ChatButtonProps> = ({ chatState, onStart, onEnd }) => {
+  const isIdle = chatState === ChatState.Idle;
+  const buttonClass = isIdle
+    ? 'bg-blue-500 hover:bg-blue-700'
+    : 'bg-orange-500 hover:bg-orange-700';
+  const buttonText = isIdle ? 'התחל צ\'אט' : 'סיום שיחה';
+  const onClick = isIdle ? onStart : onEnd;
+
+  return (
+    <button
+      className={`${buttonClass} text-white font-bold py-2 px-4 rounded w-full mb-4`}
+      onClick={onClick}
+    >
+      {buttonText}
+    </button>
+  );
+};
+
+const LogoutButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
+  <button
+    className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded w-full mt-4"
+    onClick={onClick}
+  >
+    התנתק
+  </button>
+);
 
 export default Chat;

@@ -1,27 +1,23 @@
-import express from 'express';
-import http from 'http';
+import { createServer } from 'http';
 import { Server } from 'socket.io';
-import authRoutes from './routes/auth';
-import { setupSocketIO } from './socket/chatSocket';
-import cors from 'cors'
+import app from './app';
+import { PORT } from './config';
+import { authenticateSocket } from './middleware/auth';
+import { setupSocketIO } from './socket/chatSocket'
+import { setupSocketHandlers } from './services/socketService';
 
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server, {
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
   cors: {
     origin: "http://localhost:3000",
     methods: ["GET", "POST"]
   }
 });
-app.use(cors({
-  origin: 'http://localhost:3000'
-}))
-app.use(express.json());
-app.use('/auth', authRoutes);
+
+io.use(authenticateSocket);
 
 setupSocketIO(io);
 
-const PORT = 3001;
-server.listen(PORT, () => {
+httpServer.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
