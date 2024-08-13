@@ -63,7 +63,6 @@ export const removeFromWaitingList = (userId: string) => {
 };
 
 export const startChat = (userId: string, socketId: string) => {
-  console.log({waitingUsers});
   if (waitingUsers.length > 0) {
     const partnerData = waitingUsers.shift()!;
     const chatId = uuidv4();
@@ -85,6 +84,7 @@ export const startChat = (userId: string, socketId: string) => {
       partner.chatId = chatId;
       return chat;
     }
+    //todo
   }
   return null;
 };

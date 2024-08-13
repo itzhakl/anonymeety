@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChatState } from '../types';
+import { ChatState } from '../../types';
 
 interface ChatButtonProps {
   chatState: ChatState;
@@ -7,7 +7,7 @@ interface ChatButtonProps {
   onEnd: () => void;
 }
 
-export const ChatButton: React.FC<ChatButtonProps> = ({ chatState, onStart, onEnd }) => {
+const ChatButton: React.FC<ChatButtonProps> = ({ chatState, onStart, onEnd }) => {
   const isIdle = chatState === ChatState.Idle;
   const buttonClass = isIdle
     ? 'bg-blue-500 hover:bg-blue-700'
@@ -24,3 +24,5 @@ export const ChatButton: React.FC<ChatButtonProps> = ({ chatState, onStart, onEn
     </button>
   );
 };
+
+export default ChatButton;

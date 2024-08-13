@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
+import ChatHeader from './ChatHeader';
 
 interface ChatWindowProps {
   socket: any;
@@ -9,13 +10,17 @@ interface ChatWindowProps {
   partnerUsername: string;
 }
 
+interface Message {
+  content: string;
+  isUser: boolean;
+}
+
 const ChatWindow: React.FC<ChatWindowProps> = ({ socket, chatId, userId, partnerUsername }) => {
-  const [messages, setMessages] = useState<string[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
 
   useEffect(() => {
-    setMessages([`${partnerUsername} התחבר לשיחה. אפשר להתחיל לדבר!`]);
     socket.on('message', (message: string) => {
-      setMessages((prevMessages) => [...prevMessages, message]);
+      setMessages((prevMessages) => [...prevMessages, { content: message, isUser: false }]);
     });
 
     return () => {
@@ -26,14 +31,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ socket, chatId, userId, partner
   const sendMessage = (message: string) => {    
     if (message.trim()) {
       socket.emit('send_message', message, chatId, userId);
-      setMessages((prevMessages) => [...prevMessages, `אתה: ${message}`]);
+      setMessages((prevMessages) => [...prevMessages, { content: message, isUser: true }]);
     }
   };
 
   return (
-    <div className="w-full max-w-md bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4">
-      <MessageList messages={messages} />
-      <MessageInput onSendMessage={sendMessage} />
+    <div className="w-full max-w-md bg-white shadow-md rounded-lg overflow-hidden">
+      <ChatHeader partnerUsername={partnerUsername} />
+      <div className="px-4 py-2">
+        <MessageList messages={messages} />
+        <MessageInput onSendMessage={sendMessage} />
+      </div>
     </div>
   );
 };

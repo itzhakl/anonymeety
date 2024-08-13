@@ -4,7 +4,7 @@ import Loading from './components/Loading';
 
 const Login = lazy(() => import('./components/Login'));
 const Register = lazy(() => import('./components/Register'));
-const Chat = lazy(() => import('./components/Chat'));
+const Chat = lazy(() => import('./components/Chat/Chat'));
 
 function App() {
   return (

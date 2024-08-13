@@ -24,7 +24,9 @@ export const login = async (req: Request, res: Response) => {
   const user = findUserByUsername(username);
   if (user && await bcrypt.compare(password, user.password)) {
     const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '1h' });
-    res.json({ token, userId: user.id, message: 'התחברת בהצלחה' });
+    console.log({ token, userId: user.id, message: 'התחברת בהצלחה' });
+    
+    res.status(201).json({ token, userId: user.id, message: 'התחברת בהצלחה' });
   } else {
     res.status(400).json({ message: 'Invalid credentials' });
   }

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { SOCKET_URL } from '../utils/constants';
 
 const Register: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -9,7 +10,7 @@ const Register: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch('http://localhost:3001/auth/register', {
+      const response = await fetch(`${SOCKET_URL}/auth/register`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
